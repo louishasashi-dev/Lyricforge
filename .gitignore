@@ -1,0 +1,15 @@
+.venv/
+venv/
+env/
+
+output/
+*.mp4
+
+__pycache__/
+*.py[cod]
+
+.env
+
+.vscode/
+.DS_Store
+Thumbs.db
