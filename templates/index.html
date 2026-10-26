@@ -1,0 +1,407 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>LyricForge</title>
+    <style>
+      * { box-sizing: border-box; }
+      body { margin: 0; min-height: 100vh; background: #0b0b0f; color: #f5f5f5; font-family: Arial, sans-serif; }
+      header { padding: 24px 7%; border-bottom: 1px solid #292932; }
+      header h1 { margin: 0; color: #a78bfa; font-size: 28px; }
+      header p { color: #a1a1aa; margin-bottom: 0; }
+      main { width: min(1000px, 90%); margin: 40px auto; }
+      .preview { min-height: 300px; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 16px; padding: 24px; background: #000; border: 1px solid #292932; border-radius: 12px; text-align: center; }
+      .preview .normal { color: white; font-size: clamp(24px, 4vw, 42px); font-weight: bold; overflow-wrap: anywhere; }
+      .preview .highlight { color: #a78bfa; }
+      .panel { margin-top: 24px; padding: 24px; background: #17171f; border: 1px solid #292932; border-radius: 12px; }
+      label { display: block; margin-bottom: 10px; font-weight: bold; }
+      textarea { width: 100%; min-height: 120px; padding: 14px; resize: vertical; background: #0b0b0f; color: white; border: 1px solid #3f3f4b; border-radius: 8px; font: inherit; }
+      button { margin-top: 14px; padding: 12px 18px; border: 0; border-radius: 8px; background: #8b5cf6; color: white; font-weight: bold; cursor: pointer; }
+      button:hover { background: #7c3aed; }
+      button:disabled { opacity: 0.5; cursor: not-allowed; }
+      .hint { color: #a1a1aa; font-size: 14px; line-height: 1.5; }
+      .timing-batch-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 20px; }
+      .timing-batch-controls label { margin-bottom: 0; }
+      #timingBatchSize, #exportAspectRatio { padding: 10px; background: #0b0b0f; color: white; border: 1px solid #3f3f4b; border-radius: 8px; }
+      #timingEditor { margin-top: 20px; }
+      .timing-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 14px 0; border-bottom: 1px solid #34343d; }
+      .timing-text { overflow-wrap: anywhere; }
+      .timing-time { color: #a78bfa; font-size: 14px; }
+      .timing-row button { margin-top: 0; }
+      .timing-section-title { margin-top: 24px; }
+      #wordTimingEditor { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; }
+      .word-timing-button { margin-top: 0; background: #292932; border: 1px solid #3f3f4b; }
+      .word-timing-button.marked { background: #6d28d9; border-color: #a78bfa; }
+      .word-timing-button.current { outline: 2px solid #c4b5fd; outline-offset: 2px; }
+      .export-progress-wrap { width: 100%; margin-top: 10px; }
+      #exportProgress { width: 100%; height: 18px; accent-color: #a78bfa; }
+      #exportPercent { margin: 6px 0 0; color: #c4b5fd; font-weight: bold; }
+      @media (max-width: 600px) { main { width: 94%; margin: 24px auto; } .panel { padding: 16px; } .timing-row { grid-template-columns: minmax(0, 1fr); } }
+    </style>
+  </head>
+  <body>
+    <header><h1>LyricForge</h1><p>Craft your lyrics. Create your karaoke.</p></header>
+    <main>
+      <section class="preview" id="preview">
+        <div class="normal">Your lyrics, your rhythm.</div>
+        <div class="normal"><span class="highlight">Lyric</span>Forge</div>
+      </section>
+
+      <section class="panel">
+        <label for="audioFile">Pilih audio lagu</label>
+        <input type="file" id="audioFile" accept="audio/*" />
+        <p id="audioName" class="hint">Belum ada audio yang dipilih.</p>
+        <audio id="audioPlayer" controls style="width: 100%; margin-top: 12px"></audio>
+      </section>
+
+      <section class="panel">
+        <label for="lyrics">Masukkan lirik lagu</label>
+        <textarea id="lyrics" placeholder="Masukkan lirik lagu di sini..."></textarea>
+        <button id="previewButton" type="button">Tampilkan Lirik</button>
+        <button id="prepareTimingButton" type="button">Siapkan Timing Lirik</button>
+        <button id="prepareWordTimingButton" type="button">Siapkan Timing Kata</button>
+
+        <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:14px">
+          <h2 style="width:100%">Ekspor Video MP4</h2>
+          <div>
+            <label for="exportAspectRatio">Rasio video</label>
+            <select id="exportAspectRatio">
+              <option value="16:9">16:9 — YouTube (1920 × 1080)</option>
+              <option value="9:16">9:16 — TikTok / Reels (1080 × 1920)</option>
+            </select>
+          </div>
+          <p class="hint" style="width:100%">Latar hitam, audio asli, dan animasi fade in/out. Semua baris lirik harus sudah memiliki timing.</p>
+          <button id="exportVideoButton" type="button">Ekspor Video MP4</button>
+          <div class="export-progress-wrap">
+            <p id="exportStatus" class="hint" role="status" aria-live="polite">Belum ada proses ekspor.</p>
+            <progress id="exportProgress" value="0" max="100" aria-label="Progress ekspor video"></progress>
+            <p id="exportPercent">0%</p>
+          </div>
+          <button id="saveProjectButton" type="button">Simpan Proyek JSON</button>
+          <button id="loadProjectButton" type="button">Buka Proyek JSON</button>
+          <hr style="width:100%; margin:28px 0; border-color:#34343d" />
+          <input type="file" id="projectFileInput" accept=".json,application/json" hidden />
+        </div>
+
+        <p class="hint">Putar audio, lalu tandai waktu mulai lirik. Pilih jumlah baris yang ingin ditandai setiap klik.</p>
+        <div class="timing-batch-controls">
+          <label for="timingBatchSize">Jumlah baris per klik</label>
+          <select id="timingBatchSize">
+            <option value="1">1 baris</option><option value="2">2 baris</option>
+            <option value="3">3 baris</option><option value="4">4 baris</option>
+          </select>
+        </div>
+        <div id="timingEditor"></div>
+
+        <div id="wordTimingSection" class="panel" style="display:none">
+          <h2>Timing Per Kata</h2>
+          <p class="hint">Putar audio, lalu klik kata ketika terdengar. Waktu akan dicatat otomatis.</p>
+          <div id="wordTimingProgress" class="hint"></div>
+          <div id="wordTimingEditor"></div>
+          <button id="resetWordTimingButton" type="button">Ulangi Timing Kata</button>
+        </div>
+        <p class="hint">Ini adalah tahap awal LyricForge. Berikutnya kita bisa mengembangkan pengaturan timing dan ekspor video.</p>
+      </section>
+    </main>
+
+    <script>
+      const lyricsInput = document.getElementById("lyrics");
+      const audioFileInput = document.getElementById("audioFile");
+      const audioPlayer = document.getElementById("audioPlayer");
+      const audioName = document.getElementById("audioName");
+      const preview = document.getElementById("preview");
+      const previewButton = document.getElementById("previewButton");
+      const prepareTimingButton = document.getElementById("prepareTimingButton");
+      const prepareWordTimingButton = document.getElementById("prepareWordTimingButton");
+      const timingEditor = document.getElementById("timingEditor");
+      const timingBatchSize = document.getElementById("timingBatchSize");
+      const saveProjectButton = document.getElementById("saveProjectButton");
+      const loadProjectButton = document.getElementById("loadProjectButton");
+      const projectFileInput = document.getElementById("projectFileInput");
+      const wordTimingSection = document.getElementById("wordTimingSection");
+      const wordTimingEditor = document.getElementById("wordTimingEditor");
+      const wordTimingProgress = document.getElementById("wordTimingProgress");
+      const resetWordTimingButton = document.getElementById("resetWordTimingButton");
+      const exportVideoButton = document.getElementById("exportVideoButton");
+      const exportAspectRatio = document.getElementById("exportAspectRatio");
+      const exportStatus = document.getElementById("exportStatus");
+      const exportProgress = document.getElementById("exportProgress");
+      const exportPercent = document.getElementById("exportPercent");
+
+      let currentAudioUrl = null;
+      let lyricTimings = [];
+      let wordTimings = [];
+      let activeWordIndex = 0;
+
+      audioFileInput.addEventListener("change", () => {
+        const file = audioFileInput.files[0];
+        if (!file) return;
+        if (currentAudioUrl) URL.revokeObjectURL(currentAudioUrl);
+        currentAudioUrl = URL.createObjectURL(file);
+        audioPlayer.src = currentAudioUrl;
+        audioName.textContent = "Audio: " + file.name;
+        audioPlayer.load();
+      });
+
+      function formatTime(seconds) {
+        const minutes = Math.floor(seconds / 60);
+        const remainingSeconds = (seconds % 60).toFixed(2);
+        return `${String(minutes).padStart(2, "0")}:${String(remainingSeconds).padStart(5, "0")}`;
+      }
+
+      function showPreviewLines(lines) {
+        preview.replaceChildren();
+        lines.forEach((line) => {
+          const element = document.createElement("div");
+          element.className = "normal";
+          element.textContent = line;
+          preview.appendChild(element);
+        });
+      }
+
+      previewButton.addEventListener("click", () => {
+        const lines = lyricsInput.value.split("\n").map((line) => line.trim()).filter(Boolean);
+        if (!lines.length) { showPreviewLines(["Masukkan lirik terlebih dahulu."]); return; }
+        showPreviewLines(lines);
+      });
+
+      prepareTimingButton.addEventListener("click", () => {
+        const lines = lyricsInput.value.split("\n").map((line) => line.trim()).filter(Boolean);
+        if (!audioPlayer.src) { alert("Pilih audio lagu terlebih dahulu."); return; }
+        if (!lines.length) { alert("Masukkan lirik terlebih dahulu."); return; }
+        lyricTimings = lines.map((text) => ({ text, start: null }));
+        renderTimingEditor();
+        audioPlayer.currentTime = 0;
+        audioPlayer.play().catch(() => {});
+      });
+
+      function renderTimingEditor() {
+        timingEditor.replaceChildren();
+        const pendingLyrics = lyricTimings.map((lyric, index) => ({ ...lyric, index })).filter((lyric) => lyric.start === null);
+        const completedLyrics = lyricTimings.filter((lyric) => lyric.start !== null);
+        const batch = pendingLyrics.slice(0, Number(timingBatchSize.value));
+        const pendingTitle = document.createElement("h3");
+        pendingTitle.textContent = `Antrean Timing (${pendingLyrics.length})`;
+        timingEditor.appendChild(pendingTitle);
+
+        if (batch.length) {
+          const batchContainer = document.createElement("div");
+          batchContainer.style.border = "1px solid #3f3f4b";
+          batchContainer.style.borderRadius = "8px";
+          batchContainer.style.overflow = "hidden";
+          batch.forEach((lyric) => {
+            const row = document.createElement("div");
+            row.className = "timing-row";
+            row.style.padding = "14px";
+            row.style.borderBottom = "1px solid #34343d";
+            const text = document.createElement("div");
+            text.className = "timing-text";
+            text.textContent = lyric.text;
+            row.appendChild(text);
+            batchContainer.appendChild(row);
+          });
+          const actionRow = document.createElement("div");
+          actionRow.style.display = "flex";
+          actionRow.style.justifyContent = "flex-end";
+          actionRow.style.padding = "0 14px 14px";
+          actionRow.style.background = "#17171f";
+          const markButton = document.createElement("button");
+          markButton.type = "button";
+          markButton.textContent = "Tandai Waktu";
+          markButton.addEventListener("click", () => {
+            if (!audioPlayer.src) { alert("Pilih audio lagu terlebih dahulu."); return; }
+            const timestamp = audioPlayer.currentTime;
+            batch.forEach((lyric) => { lyricTimings[lyric.index].start = timestamp; });
+            renderTimingEditor();
+            updateTimedPreview();
+          });
+          actionRow.appendChild(markButton);
+          batchContainer.appendChild(actionRow);
+          timingEditor.appendChild(batchContainer);
+        } else {
+          const message = document.createElement("p");
+          message.className = "hint";
+          message.textContent = "Semua baris sudah ditandai.";
+          timingEditor.appendChild(message);
+        }
+
+        const completedTitle = document.createElement("h3");
+        completedTitle.className = "timing-section-title";
+        completedTitle.textContent = `Sudah Ditandai (${completedLyrics.length})`;
+        timingEditor.appendChild(completedTitle);
+        completedLyrics.forEach((lyric) => {
+          const row = document.createElement("div");
+          row.className = "timing-row";
+          const text = document.createElement("div");
+          text.className = "timing-text";
+          text.textContent = lyric.text;
+          const time = document.createElement("div");
+          time.className = "timing-time";
+          time.textContent = formatTime(lyric.start);
+          row.append(text, time);
+          timingEditor.appendChild(row);
+        });
+      }
+      timingBatchSize.addEventListener("change", renderTimingEditor);
+
+      function updateTimedPreview() {
+        const currentTime = audioPlayer.currentTime;
+        const timedLyrics = lyricTimings.filter((lyric) => lyric.start !== null && lyric.start <= currentTime);
+        if (!timedLyrics.length) return;
+        const latestStart = Math.max(...timedLyrics.map((lyric) => lyric.start));
+        showPreviewLines(lyricTimings.filter((lyric) => lyric.start === latestStart).map((lyric) => lyric.text));
+      }
+      audioPlayer.addEventListener("timeupdate", updateTimedPreview);
+
+      saveProjectButton.addEventListener("click", () => {
+        const project = { app: "LyricForge", version: 1, lyrics: lyricTimings };
+        const blob = new Blob([JSON.stringify(project, null, 2)], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = "lyricforge-project.json";
+        link.click();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+      });
+
+      loadProjectButton.addEventListener("click", () => projectFileInput.click());
+      projectFileInput.addEventListener("change", async () => {
+        const file = projectFileInput.files[0];
+        if (!file) return;
+        try {
+          const project = JSON.parse(await file.text());
+          const validProject = project.app === "LyricForge" && Array.isArray(project.lyrics) &&
+            project.lyrics.every((lyric) => lyric && typeof lyric.text === "string" &&
+              (lyric.start === null || (typeof lyric.start === "number" && Number.isFinite(lyric.start) && lyric.start >= 0)));
+          if (!validProject) throw new Error("Format proyek tidak valid.");
+          lyricTimings = project.lyrics.map((lyric) => ({ text: lyric.text, start: lyric.start }));
+          lyricsInput.value = lyricTimings.map((lyric) => lyric.text).join("\n");
+          renderTimingEditor();
+          showPreviewLines(["Proyek berhasil dimuat."]);
+          alert("Proyek berhasil dibuka. Pilih kembali file audio lagu.");
+        } catch (error) {
+          alert("Gagal membuka proyek JSON: " + error.message);
+        } finally {
+          projectFileInput.value = "";
+        }
+      });
+
+      function prepareWordTiming() {
+        if (!lyricTimings.length) { alert("Siapkan timing lirik per baris terlebih dahulu."); return; }
+        wordTimings = lyricTimings.map((lyric) => ({
+          text: lyric.text,
+          words: lyric.text.split(/\s+/).filter(Boolean).map((text) => ({ text, start: null })),
+        }));
+        activeWordIndex = 0;
+        wordTimingSection.style.display = "block";
+        renderWordTimingEditor();
+      }
+
+      function renderWordTimingEditor() {
+        wordTimingEditor.replaceChildren();
+        const words = wordTimings.flatMap((line, lineIndex) => line.words.map((word, wordIndex) => ({ ...word, lineIndex, wordIndex })));
+        const markedCount = words.filter((word) => word.start !== null).length;
+        wordTimingProgress.textContent = `Kata ditandai: ${markedCount} dari ${words.length}`;
+        words.forEach((word, index) => {
+          const button = document.createElement("button");
+          button.type = "button";
+          button.className = "word-timing-button";
+          if (word.start !== null) button.classList.add("marked");
+          if (index === activeWordIndex) button.classList.add("current");
+          button.textContent = word.start === null ? word.text : `${word.text} ✓`;
+          button.title = word.start === null ? "Klik untuk mencatat waktu" : `Waktu: ${formatTime(word.start)}`;
+          button.addEventListener("click", () => {
+            if (!audioPlayer.src) { alert("Pilih audio terlebih dahulu."); return; }
+            if (word.start !== null) { alert("Kata ini sudah ditandai. Gunakan Ulangi Timing Kata untuk mengulang."); return; }
+            wordTimings[word.lineIndex].words[word.wordIndex].start = audioPlayer.currentTime;
+            const nextIndex = words.findIndex((item) => item.start === null);
+            activeWordIndex = nextIndex === -1 ? words.length : nextIndex;
+            renderWordTimingEditor();
+          });
+          wordTimingEditor.appendChild(button);
+        });
+      }
+
+      prepareWordTimingButton.addEventListener("click", prepareWordTiming);
+      resetWordTimingButton.addEventListener("click", () => {
+        if (!confirm("Hapus semua timing kata dan mulai ulang?")) return;
+        wordTimings.forEach((line) => line.words.forEach((word) => { word.start = null; }));
+        activeWordIndex = 0;
+        renderWordTimingEditor();
+      });
+
+      async function errorMessage(response) {
+        try {
+          const data = await response.json();
+          let message = data.error || "Permintaan ekspor gagal.";
+          if (data.detail) message += "\n" + data.detail;
+          return message;
+        } catch (_) { return "Permintaan ekspor gagal (HTTP " + response.status + ")."; }
+      }
+      const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+      exportVideoButton.addEventListener("click", async () => {
+        const audioFile = audioFileInput.files[0];
+        if (!audioFile) { alert("Pilih file audio terlebih dahulu."); return; }
+        if (!lyricTimings.length) { alert("Siapkan timing lirik terlebih dahulu."); return; }
+        if (lyricTimings.some((lyric) => lyric.start === null || !Number.isFinite(lyric.start) || lyric.start < 0)) {
+          alert("Tandai timing untuk semua baris lirik sebelum ekspor.");
+          return;
+        }
+
+        const formData = new FormData();
+        formData.append("audio", audioFile);
+        formData.append("lyrics", JSON.stringify(lyricTimings));
+        formData.append("aspect_ratio", exportAspectRatio.value);
+
+        exportVideoButton.disabled = true;
+        exportProgress.value = 0;
+        exportPercent.textContent = "0%";
+        exportStatus.textContent = "Mengunggah audio dan menyiapkan ekspor...";
+
+        try {
+          const response = await fetch("/export-video", { method: "POST", body: formData });
+          if (!response.ok) throw new Error(await errorMessage(response));
+          const result = await response.json();
+          const jobId = result.job_id;
+          if (!jobId) throw new Error("Server tidak mengembalikan ID pekerjaan ekspor.");
+
+          let completed = false;
+          while (!completed) {
+            await delay(500);
+            const progressResponse = await fetch(`/export-progress/${encodeURIComponent(jobId)}`, { cache: "no-store" });
+            if (!progressResponse.ok) throw new Error(await errorMessage(progressResponse));
+            const job = await progressResponse.json();
+            const percent = Math.max(0, Math.min(100, Number(job.progress) || 0));
+            exportProgress.value = percent;
+            exportPercent.textContent = `${percent}%`;
+            exportStatus.textContent = job.message || "Sedang merender video...";
+            if (job.status === "failed") throw new Error(job.error || job.message || "Ekspor video gagal.");
+            if (job.status === "completed") completed = true;
+          }
+
+          exportStatus.textContent = "Video selesai. Mengunduh file...";
+          const downloadResponse = await fetch(`/download-video/${encodeURIComponent(jobId)}`);
+          if (!downloadResponse.ok) throw new Error(await errorMessage(downloadResponse));
+          const blob = await downloadResponse.blob();
+          const downloadUrl = URL.createObjectURL(blob);
+          const link = document.createElement("a");
+          link.href = downloadUrl;
+          link.download = `LyricForge-${exportAspectRatio.value.replace(":", "x")}.mp4`;
+          document.body.appendChild(link);
+          link.click();
+          link.remove();
+          setTimeout(() => URL.revokeObjectURL(downloadUrl), 1000);
+          exportProgress.value = 100;
+          exportPercent.textContent = "100%";
+          exportStatus.textContent = "Video selesai dibuat dan diunduh.";
+        } catch (error) {
+          exportStatus.textContent = error.message || "Terjadi kesalahan saat ekspor.";
+        } finally {
+          exportVideoButton.disabled = false;
+        }
+      });
+    </script>
+  </body>
+</html>
